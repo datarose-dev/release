@@ -1,0 +1,17 @@
+{
+  "name": "@datarose/release-engine",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "license": "AGPL-3.0-or-later",
+  "engines": { "node": ">=22" },
+  "scripts": {
+    "test": "node --test",
+    "check": "node --check src/cli.mjs"
+  },
+  "dependencies": {
+    "semver": "7.8.5",
+    "smol-toml": "1.9.0",
+    "yaml": "2.9.1"
+  }
+}

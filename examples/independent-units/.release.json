@@ -1,0 +1,39 @@
+{
+  "baseBranch": "main",
+  "units": {
+    "js": {
+      "scheme": "semver",
+      "paths": ["packages/js"],
+      "tagPrefix": "js/v",
+      "initialVersion": "0.1.0",
+      "changelog": "packages/js/CHANGELOG.md",
+      "githubRelease": true,
+      "draft": false,
+      "prerelease": false,
+      "manifests": [
+        {
+          "path": "packages/js/package.json",
+          "format": "json",
+          "key": ["version"]
+        }
+      ]
+    },
+    "core": {
+      "scheme": "semver",
+      "paths": ["crates/core"],
+      "tagPrefix": "core/v",
+      "initialVersion": "0.1.0",
+      "changelog": "crates/core/CHANGELOG.md",
+      "githubRelease": true,
+      "draft": false,
+      "prerelease": false,
+      "manifests": [
+        {
+          "path": "crates/core/Cargo.toml",
+          "format": "toml",
+          "key": ["package", "version"]
+        }
+      ]
+    }
+  }
+}

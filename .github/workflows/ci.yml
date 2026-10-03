@@ -1,0 +1,28 @@
+name: CI
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Set up test tools
+        uses: ./.github/actions/setup
+        with:
+          tool-directory: ${{ github.workspace }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+
+      - name: Run built-in Node.js tests
+        env:
+          REQUIRE_GIT_CLIFF: '1'
+        run: node --test

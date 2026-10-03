@@ -1,0 +1,33 @@
+[changelog]
+header = ""
+body = """
+## [{{ version }}] - {{ timestamp | date(format=\"%Y-%m-%d\") }}
+{% for group, commits in commits | group_by(attribute=\"group\") %}
+### {{ group | striptags | trim }}
+{% for commit in commits %}
+- {% if commit.breaking %}**BREAKING:** {% endif %}{{ commit.message | split(pat=\"\\n\") | first }} ({{ commit.id | truncate(length=7, end=\"\") }})
+{% endfor %}
+{% endfor %}
+"""
+footer = ""
+trim = true
+
+[git]
+conventional_commits = true
+filter_unconventional = false
+split_commits = false
+protect_breaking_commits = true
+filter_commits = false
+commit_parsers = [
+  { message = "^feat", group = "Features" },
+  { message = "^fix", group = "Fixes" },
+  { message = "^perf", group = "Performance" },
+  { message = "^docs", group = "Documentation" },
+  { message = "^.*", group = "Other changes" },
+]
+sort_commits = "oldest"
+
+[bump]
+features_always_bump_minor = true
+breaking_always_bump_major = true
+initial_tag = "0.1.0"
