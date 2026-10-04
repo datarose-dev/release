@@ -333,7 +333,7 @@ export class ReleaseEngine {
           method: 'POST', body: { tag_name: plan.tag, target_commitish: mergeSha, name: plan.tag, body: plan.notes, draft: plan.draft, prerelease: plan.prerelease },
         });
       }
-      invariant(release.tag_name === plan.tag && release.target_commitish === mergeSha && release.body === plan.notes && release.draft === plan.draft && release.prerelease === plan.prerelease, 'Existing GitHub Release differs from reviewed notes, flags, or tag target; inspect it manually.');
+      invariant(release.tag_name === plan.tag && release.body === plan.notes && release.draft === plan.draft && release.prerelease === plan.prerelease, 'Existing GitHub Release differs from reviewed tag, notes, or flags; inspect it manually.');
       invariant(Number.isSafeInteger(release.id) && typeof release.html_url === 'string', 'GitHub returned invalid release metadata.');
     }
     return this.outputs(plan, {

@@ -79,6 +79,35 @@ test('publish tags merged commit, uses exact reviewed notes, and resumes without
   assert.equal(f.calls.filter(call => call.args[1] === 'repos/owner/project/releases' && call.input).length, 1);
 });
 
+test('publish accepts GitHub Release target_commitish metadata that differs from verified tag target', async t => {
+  const f = await fixture(t);
+  await f.engine().prepare();
+  const merged = await f.merge();
+  const plan = JSON.parse(await f.git.file(merged, '.datarose-release/release.json'));
+  const runner = async (executable, args, options) => {
+    const response = await f.runner(executable, args, options);
+    if (executable !== 'gh' || args[1] !== 'repos/owner/project/releases' || !args.includes('POST')) return response;
+
+    assert.equal(await f.git.sha(`refs/tags/${plan.tag}`), merged);
+    assert.equal(await f.git.remoteTag(plan.tag), merged);
+    const release = f.releases.get(plan.tag);
+    release.target_commitish = 'master';
+    return JSON.stringify(release);
+  };
+
+  const result = await f.engine({ runner }).publish();
+  const release = f.releases.get(plan.tag);
+  assert.equal(release.tag_name, plan.tag);
+  assert.equal(release.body, plan.notes);
+  assert.equal(release.draft, plan.draft);
+  assert.equal(release.prerelease, plan.prerelease);
+  assert.equal(release.target_commitish, 'master');
+  assert.equal(result['release-id'], '100');
+  assert.equal(result['release-url'], `https://github.com/owner/project/releases/tag/${plan.tag}`);
+  assert.equal(await f.git.sha(`refs/tags/${plan.tag}`), merged);
+  assert.equal(await f.git.remoteTag(plan.tag), merged);
+});
+
 test('squash merge works; tag-only mode omits GitHub Release outputs', async t => {
   const f = await fixture(t, { githubRelease: false, changelog: false });
   await f.engine().prepare();
