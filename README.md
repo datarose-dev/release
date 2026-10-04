@@ -20,9 +20,22 @@ gh workflow run release.yml --repo OWNER/REPO -f unit=release
 gh workflow run release.yml --repo OWNER/REPO -f unit=release -f version=2026.10.1
 ```
 
-The second command forces the specified version exactly; the engine does not add a suffix or otherwise change it. For a CalVer unit, the forced version must match the current UTC year and month and advance its previous tag.
+The second command forces the specified version exactly; the engine does not add a suffix or otherwise change it. A forced version must match the unit's scheme and advance its previous tag. For a CalVer unit, it must also match the current UTC year and month.
+
+Before using the workflow for a production release, smoke-test the setup in a disposable GitHub repository.
 
 Pin the reusable workflow ref and `tool-ref` to the **same immutable full SHA**. The reusable workflow validates `tool-ref` before checkout. It checks out the release tool into `release-tool` and the target repository's default branch into `release-target`, with full history and tags. Release workflows run on hosted Linux x86_64 runners with Node.js 22.
+
+## Choosing a version scheme
+
+Choose one scheme for each independently configured release unit, based on what its users need:
+
+- **SemVer** (`MAJOR.MINOR.PATCH`) communicates compatibility. Use it when consumers need to judge upgrade risk from version changes. This engine uses Conventional Commits: breaking changes bump `MAJOR`, `feat` commits bump `MINOR`, and `fix` commits bump `PATCH`. For example, a tag can be `v2.4.1`.
+- **CalVer** is time-oriented. Use it when release date or cadence matters more than a compatibility signal. This engine uses UTC `YEAR.MONTH.counter`; month is unpadded, and counter starts at `1` each UTC month. For example, a tag can be `v2026.10.1`.
+
+Use one scheme consistently. The engine does not switch schemes automatically; changing schemes after publishing tags needs an explicit migration plan. Draft and prerelease are separate release settings, not version schemes: `draft` controls GitHub draft metadata without changing the version. `prerelease` marks the GitHub release as a prerelease and can add `-rc.1` to an automatically calculated stable version. Neither setting changes a forced version.
+
+This repository configures its own `release` unit as CalVer. Consumer repositories can choose SemVer or CalVer for each unit in their own configuration.
 
 ## Release lifecycle
 
@@ -68,14 +81,15 @@ Release configuration uses JSON. `.release.json` is the default; pass another JS
 - `baseBranch` selects the branch used to prepare or refresh release changes.
 - `releaseAuthor` binds managed release PRs to one exact GitHub login. It defaults to `github-actions[bot]`. Set it to the exact PR author login for a PAT or GitHub App token.
 - `units` maps unit names to versioning, paths, tags, changelog, GitHub release, and manifest settings.
-- `scheme` is `calver` or `semver`. CalVer uses UTC `YEAR.MONTH.counter`, with an unpadded month and counter starting at 1 each month. SemVer increments from `initialVersion` using Conventional Commits.
+- `scheme` is `calver` or `semver`. CalVer uses UTC `YEAR.MONTH.counter`, with an unpadded month and counter starting at 1 each month. SemVer increments from `initialVersion` using Conventional Commits. See [Choosing a version scheme](#choosing-a-version-scheme) to select the scheme that fits each unit.
 - `paths` scopes change detection. Use `["."]` for a solo repository or shared-version release.
 - `tagPrefix` prefixes generated versions, such as `v`, `js/v`, or `core/v`.
 - `initialVersion` seeds version calculation when no earlier unit tag exists.
 - `changelog: false` skips the changelog file. Reviewed notes are still saved in release state.
 - `githubRelease: false` creates the tag and, when enabled, the changelog without a GitHub release.
 - `draft` and `prerelease` accept booleans. Workflow inputs can override each with `true`, `false`, or an empty value to keep the configured setting.
-- Draft is GitHub release metadata; it does not change the version. `prerelease: true` may append `-rc.1` to an automatically calculated stable version. It never modifies a forced version.
+- Draft is GitHub release metadata; it does not change the version. `prerelease: true` marks the GitHub release as a prerelease and may append `-rc.1` to an automatically calculated stable version. Neither setting modifies a forced version.
+- A forced prerelease version must already include its suffix. Set `draft: true` or `prerelease: true` to allow it.
 - `manifests` updates existing version fields in supported JSON, YAML, and TOML manifests. TOML keys use path components, for example `["workspace", "package", "version"]`.
 
 See [`examples/independent-units/`](examples/independent-units/) for separate JavaScript and Rust release units with different path scopes and tag prefixes. See [`examples/shared-version-monorepo/`](examples/shared-version-monorepo/) for one version shared by JavaScript, PHP, and a Cargo workspace.
@@ -95,24 +109,7 @@ Do not pass a write token to consumer build jobs. The consumer workflow template
 
 Reusable workflows expose `unit`, `version`, `tag`, `source-sha`, `release-sha`, `pr-number`, `release-id`, and `release-url`. `release-sha` identifies the merged commit for build checkout; `source-sha` identifies the reviewed source. A tag-only unit can have empty release ID and URL.
 
-## Development
-
-Requirements: Node.js 22 and npm.
-
-```sh
-npm ci --ignore-scripts
-node --test
-```
-
-Run the helper's read-only check from a clean checkout of this repository after installing dependencies. Target worktree must contain no uncommitted or untracked files. For SemVer units with a previous tag, put the pinned git-cliff binary on `PATH`:
-
-```sh
-RELEASE_REPOSITORY_DIR="$PWD" RELEASE_UNIT=release node src/cli.mjs check
-```
-
-`check` validates release configuration, candidate version, relevant changes, manifest fields, and changelog path. It does not prepare or publish a release.
-
-CI sets `REQUIRE_GIT_CLIFF=1` and runs tests with the real verified git-cliff binary; CI fails if binary is missing. Locally, real-binary tests skip when git-cliff is unavailable. No live remote release was run for this implementation. A maintainer must verify release behavior with an integration test in a disposable repository.
+For contributor prerequisites and validation steps, see [CONTRIBUTION.md](CONTRIBUTION.md). No live remote release test has been run for this project. Verify integration in a disposable GitHub repository before production use.
 
 ## License
 
