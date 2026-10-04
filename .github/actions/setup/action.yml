@@ -1,0 +1,44 @@
+name: Set up trusted release tools
+description: Install pinned Node dependencies and verified git-cliff binary
+inputs:
+  tool-directory:
+    description: Absolute path to trusted datarose-dev/release checkout
+    required: true
+runs:
+  using: composite
+  steps:
+    - name: Set up Node.js
+      uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+      with:
+        node-version: 22
+    - name: Install trusted release dependencies
+      shell: bash
+      env:
+        TOOL_DIRECTORY: ${{ inputs.tool-directory }}
+      run: npm ci --ignore-scripts --prefix "$TOOL_DIRECTORY"
+    - name: Install verified git-cliff
+      shell: bash
+      env:
+        GH_TOKEN: ${{ env.GH_TOKEN }}
+      run: |
+        set -euo pipefail
+        if [[ "$(uname -m)" != "x86_64" ]]; then
+          echo "Release workflows require an x86_64 Linux runner." >&2
+          exit 1
+        fi
+
+        version=2.14.2
+        asset="git-cliff-${version}-x86_64-unknown-linux-gnu.tar.gz"
+        install_dir="$RUNNER_TEMP/git-cliff/bin"
+        mkdir -p "$install_dir" "$RUNNER_TEMP/git-cliff-archive"
+        gh release download "v${version}" \
+          --repo orhun/git-cliff \
+          --pattern "$asset" \
+          --dir "$RUNNER_TEMP/git-cliff-archive"
+        archive="$RUNNER_TEMP/git-cliff-archive/$asset"
+        printf '%s  %s\n' \
+          '24f397c733add5390fdceee3a2088588ab0d5f944ce00d34cb7029b888cf2db4' \
+          "$archive" | sha256sum --check --status
+        tar -xzf "$archive" -C "$install_dir" --strip-components=1 "git-cliff-${version}/git-cliff"
+        chmod +x "$install_dir/git-cliff"
+        echo "$install_dir" >> "$GITHUB_PATH"

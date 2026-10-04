@@ -1,0 +1,22 @@
+{
+  "baseBranch": "master",
+  "units": {
+    "release": {
+      "scheme": "calver",
+      "paths": ["."],
+      "tagPrefix": "v",
+      "initialVersion": "0.1.0",
+      "changelog": "CHANGELOG.md",
+      "githubRelease": true,
+      "draft": false,
+      "prerelease": false,
+      "manifests": [
+        {
+          "path": "package.json",
+          "format": "json",
+          "key": ["version"]
+        }
+      ]
+    }
+  }
+}

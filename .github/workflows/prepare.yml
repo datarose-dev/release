@@ -1,0 +1,149 @@
+name: Prepare release
+on:
+  workflow_call:
+    inputs:
+      tool-ref:
+        description: Full commit SHA for trusted datarose-dev/release workflow code
+        type: string
+        required: true
+      unit:
+        description: Configured release unit
+        type: string
+        required: false
+        default: release
+      version:
+        description: Optional forced release version
+        type: string
+        required: false
+        default: ''
+      draft:
+        description: true, false, or empty to use unit config
+        type: string
+        required: false
+        default: ''
+      prerelease:
+        description: true, false, or empty to use unit config
+        type: string
+        required: false
+        default: ''
+      config:
+        description: Release configuration path in target repository
+        type: string
+        required: false
+        default: .release.json
+    secrets:
+      release-token:
+        description: Optional token that can create pull requests and bypass GITHUB_TOKEN event suppression
+        required: false
+    outputs:
+      unit:
+        description: Released unit
+        value: ${{ jobs.release.outputs.unit }}
+      version:
+        description: Release version
+        value: ${{ jobs.release.outputs.version }}
+      tag:
+        description: Release tag
+        value: ${{ jobs.release.outputs.tag }}
+      source-sha:
+        description: Source commit SHA reviewed for release
+        value: ${{ jobs.release.outputs.source-sha }}
+      release-sha:
+        description: Merged commit SHA receiving the release tag
+        value: ${{ jobs.release.outputs.release-sha }}
+      pr-number:
+        description: Release pull request number, when applicable
+        value: ${{ jobs.release.outputs.pr-number }}
+      release-id:
+        description: GitHub release ID, when created
+        value: ${{ jobs.release.outputs.release-id }}
+      release-url:
+        description: GitHub release URL, when created
+        value: ${{ jobs.release.outputs.release-url }}
+
+concurrency:
+  group: datarose-release-${{ github.repository }}-${{ inputs.config }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  release:
+    if: github.event_name != 'issue_comment' || (github.event.issue.pull_request != null && github.event.comment.body == '@datarose-release update')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+    outputs:
+      unit: ${{ steps.run-release.outputs.unit }}
+      version: ${{ steps.run-release.outputs.version }}
+      tag: ${{ steps.run-release.outputs.tag }}
+      source-sha: ${{ steps.run-release.outputs.source-sha }}
+      release-sha: ${{ steps.run-release.outputs.release-sha }}
+      pr-number: ${{ steps.run-release.outputs.pr-number }}
+      release-id: ${{ steps.run-release.outputs.release-id }}
+      release-url: ${{ steps.run-release.outputs.release-url }}
+    steps:
+      - name: Validate trusted tool ref
+        shell: bash
+        env:
+          TOOL_REF: ${{ inputs.tool-ref }}
+        run: |
+          if [[ ! "$TOOL_REF" =~ ^[0-9a-fA-F]{40}$ ]]; then
+            echo "tool-ref must be a full 40-character commit SHA." >&2
+            exit 1
+          fi
+
+      - name: Check out trusted release tool
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: datarose-dev/release
+          ref: ${{ inputs.tool-ref }}
+          path: release-tool
+          persist-credentials: false
+
+      - name: Check out target default branch
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: ${{ github.repository }}
+          ref: ${{ github.event.repository.default_branch }}
+          path: release-target
+          fetch-depth: 0
+          persist-credentials: false
+          token: ${{ secrets.release-token || github.token }}
+
+      - name: Install trusted release tools
+        uses: ./release-tool/.github/actions/setup
+        with:
+          tool-directory: ${{ github.workspace }}/release-tool
+        env:
+          GH_TOKEN: ${{ secrets.release-token || github.token }}
+
+      - name: Configure authenticated git push
+        working-directory: release-target
+        env:
+          GH_TOKEN: ${{ secrets.release-token || github.token }}
+        run: gh auth setup-git
+
+      - name: Prepare or update release pull request
+        id: run-release
+        working-directory: release-target
+        env:
+          GH_TOKEN: ${{ secrets.release-token || github.token }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          GITHUB_EVENT_PATH: ${{ github.event_path }}
+          RELEASE_REPOSITORY_DIR: ${{ github.workspace }}/release-target
+          RELEASE_CONFIG: ${{ inputs.config }}
+          RELEASE_UNIT: ${{ inputs.unit }}
+          RELEASE_VERSION: ${{ inputs.version }}
+          RELEASE_DRAFT: ${{ inputs.draft }}
+          RELEASE_PRERELEASE: ${{ inputs.prerelease }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ "$GITHUB_EVENT_NAME" == "issue_comment" ]]; then
+            node "$GITHUB_WORKSPACE/release-tool/src/cli.mjs" update
+          else
+            node "$GITHUB_WORKSPACE/release-tool/src/cli.mjs" prepare
+          fi

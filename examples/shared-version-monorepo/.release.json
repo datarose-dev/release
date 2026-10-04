@@ -1,0 +1,32 @@
+{
+  "baseBranch": "main",
+  "units": {
+    "release": {
+      "scheme": "semver",
+      "paths": ["."],
+      "tagPrefix": "v",
+      "initialVersion": "0.1.0",
+      "changelog": "CHANGELOG.md",
+      "githubRelease": true,
+      "draft": false,
+      "prerelease": false,
+      "manifests": [
+        {
+          "path": "packages/js/package.json",
+          "format": "json",
+          "key": ["version"]
+        },
+        {
+          "path": "packages/php/composer.json",
+          "format": "json",
+          "key": ["version"]
+        },
+        {
+          "path": "Cargo.toml",
+          "format": "toml",
+          "key": ["workspace", "package", "version"]
+        }
+      ]
+    }
+  }
+}

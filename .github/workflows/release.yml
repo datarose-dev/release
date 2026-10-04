@@ -1,0 +1,71 @@
+name: Release automation
+on:
+  workflow_dispatch:
+    inputs:
+      unit:
+        description: Configured release unit
+        required: false
+        type: string
+        default: release
+      version:
+        description: Optional forced version
+        required: false
+        type: string
+        default: ''
+      draft:
+        description: true, false, or empty to use unit config
+        required: false
+        type: string
+        default: ''
+      prerelease:
+        description: true, false, or empty to use unit config
+        required: false
+        type: string
+        default: ''
+  issue_comment:
+    types: [created]
+  pull_request_target:
+    types: [closed]
+
+permissions:
+  contents: read
+
+jobs:
+  prepare-dispatch:
+    if: github.event_name == 'workflow_dispatch'
+    permissions:
+      contents: write
+      pull-requests: write
+    uses: ./.github/workflows/prepare.yml
+    with:
+      tool-ref: ${{ github.sha }}
+      unit: ${{ inputs.unit }}
+      version: ${{ inputs.version }}
+      draft: ${{ inputs.draft }}
+      prerelease: ${{ inputs.prerelease }}
+    secrets:
+      release-token: ${{ secrets.GITHUB_TOKEN }}
+
+  prepare-comment-update:
+    if: github.event_name == 'issue_comment' && github.event.issue.pull_request != null && github.event.comment.body == '@datarose-release update'
+    permissions:
+      contents: write
+      pull-requests: write
+    uses: ./.github/workflows/prepare.yml
+    with:
+      tool-ref: ${{ github.sha }}
+      unit: release
+    secrets:
+      release-token: ${{ secrets.GITHUB_TOKEN }}
+
+  publish-merged-release:
+    if: github.event_name == 'pull_request_target' && github.event.action == 'closed' && github.event.pull_request.merged == true
+    permissions:
+      contents: write
+      pull-requests: read
+    uses: ./.github/workflows/publish.yml
+    with:
+      tool-ref: ${{ github.event.pull_request.base.sha }}
+      unit: release
+    secrets:
+      release-token: ${{ secrets.GITHUB_TOKEN }}
